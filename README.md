@@ -53,30 +53,27 @@ The system is built on a decoupled architecture to ensure model inference does n
 ### System Architecture
 
 ```mermaid
-flowchart TD
-    A[User Call] --> B[Streamlit Frontend]
-    B --> C[WebSocket Audio Stream]
-    C --> D[FastAPI API Server]
-    D --> E[Modal GPU Backend]
+flowchart LR
+    A[User Call] --> B[Streamlit]
+    B --> C[WebSocket Stream]
+    C --> D[FastAPI]
+    D --> E[Modal GPU]
 
-    E --> F[Whisper ASR - Speech to Text]
+    E --> F[Whisper ASR]
 
-    F --> G[Conversation Memory]
+    F --> G[Feature Extraction]
 
-    G --> H[Feature Extraction]
+    G --> H[Wav2Vec2 Audio]
+    G --> I[BGE Text]
 
-    H --> I[Wav2Vec2 Audio Embeddings]
-    H --> J[BGE Text Embeddings]
+    H --> J[Fusion Model]
+    I --> J
 
-    I --> K[Multimodal Fusion Model]
-    J --> K
+    J --> K[Fraud Score]
 
-    K --> L[Fraud Probability Score]
-
-    L --> M{Probability > 0.85}
-
-    M -->|Yes| N[Terminate Call]
-    M -->|No| O[Continue Monitoring]
+    K --> L{> 0.85}
+    L -->|Yes| M[Terminate]
+    L -->|No| N[Continue]
 ```
 
 ### Real-Time Streaming Pipeline
