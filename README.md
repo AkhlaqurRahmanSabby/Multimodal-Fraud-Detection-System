@@ -48,12 +48,42 @@ The system includes a real-time monitoring dashboard for model performance and i
 
 ## Technical Architecture & Performance
 
-The system is built on a decoupled architecture to ensure model inference does not block the user interface. 
+The system is built on a decoupled architecture to ensure model inference does not block the user interface.
+
+### System Architecture
+
+```mermaid
+flowchart TD
+    A[User Call] --> B[Streamlit Frontend]
+    B --> C[WebSocket Audio Stream]
+    C --> D[FastAPI API Server]
+    D --> E[Modal GPU Backend]
+
+    E --> F[Whisper ASR - Speech to Text]
+
+    F --> G[Conversation Memory]
+
+    G --> H[Feature Extraction]
+
+    H --> I[Wav2Vec2 Audio Embeddings]
+    H --> J[BGE Text Embeddings]
+
+    I --> K[Multimodal Fusion Model]
+    J --> K
+
+    K --> L[Fraud Probability Score]
+
+    L --> M{Probability > 0.85}
+
+    M -->|Yes| N[Terminate Call]
+    M -->|No| O[Continue Monitoring]
+```
 
 ### Real-Time Streaming Pipeline
 1. **Frontend (Streamlit):** Captures audio in 5-second chunks and sends raw bytes via **WebSockets** for low-latency communication.
 2. **Backend (Modal + FastAPI):** A serverless Python environment that scales to a **T4 GPU** on demand.
-3. **The Fusion Engine:** * **Whisper & BGE:** Converts audio to text and checks for fraudulent language patterns.
+3. **The Fusion Engine:** 
+   * **Whisper & BGE:** Converts audio to text and checks for fraudulent language patterns.
    * **Wav2Vec2:** Analyzes the raw audio waves to detect emotional stress and urgency.
    * **Stateful Memory:** The system remembers previous chunks to calculate a cumulative risk score.
 
@@ -156,6 +186,25 @@ This allows the system to detect patterns such as:
 - escalation in pressure or urgency  
 - repeated requests for financial information  
 - impersonation tactics developing over time
+
+---
+
+## Production ML Considerations
+
+Building a real-time fraud detection system requires more than model accuracy.  
+The system is designed with several production ML challenges in mind:
+
+**Cold Start Latency**  
+GPU model loading and container warm-up are handled during service initialization to prevent delays during live calls.
+
+**Stateful Streaming Inference**  
+Instead of evaluating isolated segments, the model maintains conversation state across the entire call.
+
+**Scalable Serverless Inference**  
+The backend runs on serverless GPU infrastructure, allowing the system to scale dynamically with incoming calls.
+
+**Monitoring & Observability**  
+The system tracks real-time inference latency, fraud probability trends, and infrastructure cost.
 
 ---
 
