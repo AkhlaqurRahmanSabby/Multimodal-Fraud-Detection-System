@@ -112,27 +112,23 @@ text | label
 "Hello this is the pharmacy calling about your prescription refill..." | 0  
 "You have been selected to receive a government grant..." | 1  
 
-### Synthetic Audio Generation
+### Training Pipeline
 
-Because the dataset contains **text-only transcripts**, synthetic speech was generated to enable audio analysis. Each transcript was converted into `.wav` audio using **Google Text-to-Speech (gTTS)**, creating a multimodal dataset:
+1. **Synthetic Audio Generation:** Because the dataset contains **text-only transcripts**, synthetic speech was generated to enable audio analysis. Each transcript was converted into `.wav` audio using **Google Text-to-Speech (gTTS)**, creating a multimodal dataset:
 
-text | label | audio_path  
+   text | label | audio_path  
 
-### Feature Extraction
+2. **Feature Extraction:** Two pretrained models were used to encode the conversation.
 
-Two pretrained models were used to encode the conversation.
+   **Audio Features:** Speech signals were processed using **Wav2Vec2**, producing **2304-dimensional embeddings** that capture tone, cadence, and vocal stress.
 
-**Audio Features:** Speech signals were processed using **Wav2Vec2**, producing **2304-dimensional embeddings** that capture tone, cadence, and vocal stress.
+   **Text Features:** Transcripts were encoded using **BGE Base English v1.5**, producing **768-dimensional semantic embeddings**.
 
-**Text Features:** Transcripts were encoded using **BGE Base English v1.5**, producing **768-dimensional semantic embeddings**.
+3. **Multimodal Fusion:** The audio and text embeddings were merged into a single representation:
 
-### Multimodal Fusion
+   2304 audio features + 768 text features → **3072 multimodal features**
 
-The audio and text embeddings were merged into a single representation:
-
-2304 audio features + 768 text features → **3072 multimodal features**
-
-This allows the model to evaluate both **what is being said** and **how it is being said**, forming the input for the fraud classification models described in the following sections.
+   This allows the model to evaluate both **what is being said** and **how it is being said**, forming the input for the fraud classification models described in the following sections.
 
 ---
 
@@ -142,36 +138,24 @@ During a live call, the system continuously analyzes streaming audio and updates
 
 ### Streaming Processing Flow
 
-1. **Audio Stream**  
-   The frontend sends **5-second audio chunks** to the backend using WebSockets.
+1. **Audio Stream:** The frontend sends **5-second audio chunks** to the backend using WebSockets.
 
-2. **Speech Transcription**  
-   Each chunk is transcribed using **Whisper**, producing a short transcript segment.
+2. **Speech Transcription:** Each chunk is transcribed using **Whisper**, producing a short transcript segment.
 
-3. **Conversation Memory**  
-   The new transcript and audio are appended to the **cumulative call history**, allowing the model to evaluate the full conversation context rather than only the latest segment.
+3. **Conversation Memory:** The new transcript and audio are appended to the **cumulative call history**, allowing the model to evaluate the full conversation context rather than only the latest segment.
 
 4. **Feature Extraction**
 
-   **Audio Features**  
-   Processed using **Wav2Vec2**, capturing vocal tone, cadence, urgency, and stress patterns.
+   **Audio Features:** Processed using **Wav2Vec2**, capturing vocal tone, cadence, urgency, and stress patterns.
 
-   **Text Features**  
-   Encoded using **BGE embeddings**, capturing semantic meaning and scam-related language patterns.
+   **Text Features:** Encoded using **BGE embeddings**, capturing semantic meaning and scam-related language patterns.
 
-5. **Multimodal Fusion**
-
-   The features are combined into a single vector:
-
+5. **Multimodal Fusion:** The features are combined into a single vector:
    2304 audio features + 768 text features = **3072 multimodal features**
 
-6. **Fraud Probability Prediction**
+6. **Fraud Probability Prediction:** The fused vector is passed into the trained **PyTorch fusion classifier**, which outputs a fraud probability between 0.0 and 1.0.
 
-   The fused vector is passed into the trained **PyTorch fusion classifier**, which outputs a fraud probability between 0.0 and 1.0.
-
-7. **Decision Threshold**
-
-   If the fraud probability exceeds **0.85**, the system triggers a scam alert and terminates the call.
+7. **Decision Threshold:** If the fraud probability exceeds **0.85**, the system triggers a scam alert and terminates the call.
 
 ### Stateful Conversation Analysis
 
