@@ -73,7 +73,7 @@ def plot_latency(times, total_lats, model_lats):
     )
     return fig
 
-col_graph1, col_graph2 = st.columns(2, gap="large")
+col_graph1, col_graph2 = st.columns(2, gap="small")
 conf_graph_display = col_graph1.empty()
 lat_graph_display = col_graph2.empty()
 
@@ -92,48 +92,63 @@ st.write("")
 col_input, col_output = st.columns(2, gap="large")
 
 with col_input:
-    st.markdown("<h3 style='text-align: center;'>System Input</h3>", unsafe_allow_html=True)
-    st.write("") 
-    
-    input_method = st.radio("Select Audio Source:", ["📁 Upload File", "🎙️ Record Microphone", "🎵 Sample Audio"], horizontal=True)
-    
-    audio_source = None
-    selected_sample_path = None
-    
-    if input_method == "📁 Upload File":
-        audio_source = st.file_uploader("Upload PCM Audio (.wav / .mp3):", type=["wav", "mp3"])
-    elif input_method == "🎵 Sample Audio":
-        st.info("💡 **Demo Testing:** These pre-loaded samples match the model's training distribution. You can play the audio to hear the script before initiating the stream.")
+    # Wrap in a bordered container for a clean "card" look
+    with st.container(border=True):
+        st.markdown("<h3 style='text-align: center;'>System Input</h3>", unsafe_allow_html=True)
+        st.write("") 
         
-        samples_data = {
-            "🟢 SAFE | Sample 0: Friend Follow-up": "samples/sample_0.wav",
-            "🟢 SAFE | Sample 1: Board Game Invite": "samples/sample_1.wav",
-            "🔴 SCAM | Sample 2: Customs Package Intercept": "samples/sample_2.wav",
-            "🟢 SAFE | Sample 3: Utility Bill Callback": "samples/sample_3.wav",
-            "🔴 SCAM | Sample 4: Customs Package Variation": "samples/sample_4.wav"
-        }
+        input_method = st.radio("Select Audio Source:", ["📁 Upload File", "🎙️ Record Call", "🎵 Sample Audio"], horizontal=True)
         
-        sample_name = st.selectbox("Choose a test sample:", list(samples_data.keys()))
-        selected_sample_path = samples_data[sample_name]
-        st.write("**Listen to the selected sample:**")
-        st.audio(selected_sample_path, format="audio/wav")
-    else:
-        audio_source = st.audio_input("Record directly from your microphone:")
-    
-    st.write("") 
-    start_button = st.button("Initiate Live Stream", type="primary", use_container_width=True)
-    cold_start_indicator = st.empty()
+        audio_source = None
+        selected_sample_path = None
+        
+        if input_method == "📁 Upload File":
+            audio_source = st.file_uploader("Upload PCM Audio (.wav / .mp3):", type=["wav", "mp3"])
+        elif input_method == "🎵 Sample Audio":
+            st.info("💡 **Demo Testing:** These pre-loaded samples match the model's training distribution. You can play the audio to hear the script before initiating the stream.")
+            
+            samples_data = {
+                "🟢 SAFE | Sample 0: Friend Follow-up": "samples/sample_0.wav",
+                "🟢 SAFE | Sample 1: Board Game Invite": "samples/sample_1.wav",
+                "🔴 SCAM | Sample 2: Customs Package Intercept": "samples/sample_2.wav",
+                "🟢 SAFE | Sample 3: Utility Bill Callback": "samples/sample_3.wav",
+                "🔴 SCAM | Sample 4: Customs Package Variation": "samples/sample_4.wav"
+            }
+            
+            sample_name = st.selectbox("Choose a test sample:", list(samples_data.keys()))
+            selected_sample_path = samples_data[sample_name]
+            st.write("**Listen to the selected sample:**")
+            st.audio(selected_sample_path, format="audio/wav")
+        else:
+            audio_source = st.audio_input("Record directly from your microphone:")
+        
+        st.write("") 
+        start_button = st.button("Initiate Live Stream", type="primary", use_container_width=True)
+        cold_start_indicator = st.empty()
 
 with col_output:
-    # Centered Subheader via HTML
-    st.markdown("<h3 style='text-align: center;'>Live ASR Output & Alerts</h3>", unsafe_allow_html=True)
-    st.write("") 
-    st.write("") 
-    transcript_box = st.empty()
-    
-    st.write("") 
-    status_indicator = st.empty()
-    alert_box = st.empty()
+    # Wrap in a matching bordered container
+    with st.container(border=True):
+        st.markdown("<h3 style='text-align: center;'>Live ASR Output & Alerts</h3>", unsafe_allow_html=True)
+        st.write("") 
+        st.write("") 
+        
+        transcript_box = st.empty()
+        
+        # --- NEW: Empty State Placeholder ---
+        transcript_box.markdown(
+            """
+            <div style='padding: 40px 20px; text-align: center; color: #6c757d; background-color: #f8f9fa; border-radius: 10px; border: 2px dashed #dee2e6;'>
+                <span style='font-size: 24px;'>⏳</span><br><br>
+                <strong>Awaiting Stream</strong><br>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
+        
+        st.write("") 
+        status_indicator = st.empty()
+        alert_box = st.empty()
 
 # --- The Continuous Streaming Loop ---
 async def run_live_stream(audio_bytes):
