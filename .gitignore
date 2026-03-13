@@ -10,3 +10,4 @@ data/feedback/*
 *.mp3
 *.pth
 *.pt
+.streamlit/
