@@ -4,6 +4,8 @@ An enterprise-grade real-time AI streaming pipeline that intercepts and terminat
 
 Built with **Streamlit, FastAPI, WebSockets, Modal (Serverless T4 GPU), PyTorch, Whisper, and Wav2Vec2**.
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Try%20the%20App-red?style=for-the-badge)](https://multimodal-fraud-detection-system.streamlit.app/)
+
 ---
 
 ## Key Features
@@ -48,12 +50,39 @@ The system includes a real-time monitoring dashboard for model performance and i
 
 ## Technical Architecture & Performance
 
-The system is built on a decoupled architecture to ensure model inference does not block the user interface. 
+The system is built on a decoupled architecture to ensure model inference does not block the user interface.
+
+### System Architecture
+
+```mermaid
+flowchart LR
+    A[User Call] --> B[Streamlit]
+    B --> C[WebSocket Stream]
+    C --> D[FastAPI]
+    D --> E[Modal GPU]
+
+    E --> F[Whisper ASR]
+
+    F --> G[Feature Extraction]
+
+    G --> H[Wav2Vec2 Audio]
+    G --> I[BGE Text]
+
+    H --> J[Fusion Model]
+    I --> J
+
+    J --> K[Fraud Score]
+
+    K --> L{> 0.85}
+    L -->|Yes| M[Terminate]
+    L -->|No| N[Continue]
+```
 
 ### Real-Time Streaming Pipeline
 1. **Frontend (Streamlit):** Captures audio in 5-second chunks and sends raw bytes via **WebSockets** for low-latency communication.
 2. **Backend (Modal + FastAPI):** A serverless Python environment that scales to a **T4 GPU** on demand.
-3. **The Fusion Engine:** * **Whisper & BGE:** Converts audio to text and checks for fraudulent language patterns.
+3. **The Fusion Engine:** 
+   * **Whisper & BGE:** Converts audio to text and checks for fraudulent language patterns.
    * **Wav2Vec2:** Analyzes the raw audio waves to detect emotional stress and urgency.
    * **Stateful Memory:** The system remembers previous chunks to calculate a cumulative risk score.
 
@@ -85,27 +114,23 @@ text | label
 "Hello this is the pharmacy calling about your prescription refill..." | 0  
 "You have been selected to receive a government grant..." | 1  
 
-### Synthetic Audio Generation
+### Training Pipeline
 
-Because the dataset contains **text-only transcripts**, synthetic speech was generated to enable audio analysis. Each transcript was converted into `.wav` audio using **Google Text-to-Speech (gTTS)**, creating a multimodal dataset:
+1. **Synthetic Audio Generation:** Because the dataset contains **text-only transcripts**, synthetic speech was generated to enable audio analysis. Each transcript was converted into `.wav` audio using **Google Text-to-Speech (gTTS)**, creating a multimodal dataset:
 
-text | label | audio_path  
+   text | label | audio_path  
 
-### Feature Extraction
+2. **Feature Extraction:** Two pretrained models were used to encode the conversation.
 
-Two pretrained models were used to encode the conversation.
+   **Audio Features:** Speech signals were processed using **Wav2Vec2**, producing **2304-dimensional embeddings** that capture tone, cadence, and vocal stress.
 
-**Audio Features:** Speech signals were processed using **Wav2Vec2**, producing **2304-dimensional embeddings** that capture tone, cadence, and vocal stress.
+   **Text Features:** Transcripts were encoded using **BGE Base English v1.5**, producing **768-dimensional semantic embeddings**.
 
-**Text Features:** Transcripts were encoded using **BGE Base English v1.5**, producing **768-dimensional semantic embeddings**.
+3. **Multimodal Fusion:** The audio and text embeddings were merged into a single representation:
 
-### Multimodal Fusion
+   2304 audio features + 768 text features → **3072 multimodal features**
 
-The audio and text embeddings were merged into a single representation:
-
-2304 audio features + 768 text features → **3072 multimodal features**
-
-This allows the model to evaluate both **what is being said** and **how it is being said**, forming the input for the fraud classification models described in the following sections.
+   This allows the model to evaluate both **what is being said** and **how it is being said**, forming the input for the fraud classification models described in the following sections.
 
 ---
 
@@ -115,36 +140,24 @@ During a live call, the system continuously analyzes streaming audio and updates
 
 ### Streaming Processing Flow
 
-1. **Audio Stream**  
-   The frontend sends **5-second audio chunks** to the backend using WebSockets.
+1. **Audio Stream:** The frontend sends **5-second audio chunks** to the backend using WebSockets.
 
-2. **Speech Transcription**  
-   Each chunk is transcribed using **Whisper**, producing a short transcript segment.
+2. **Speech Transcription:** Each chunk is transcribed using **Whisper**, producing a short transcript segment.
 
-3. **Conversation Memory**  
-   The new transcript and audio are appended to the **cumulative call history**, allowing the model to evaluate the full conversation context rather than only the latest segment.
+3. **Conversation Memory:** The new transcript and audio are appended to the **cumulative call history**, allowing the model to evaluate the full conversation context rather than only the latest segment.
 
 4. **Feature Extraction**
 
-   **Audio Features**  
-   Processed using **Wav2Vec2**, capturing vocal tone, cadence, urgency, and stress patterns.
+   **Audio Features:** Processed using **Wav2Vec2**, capturing vocal tone, cadence, urgency, and stress patterns.
 
-   **Text Features**  
-   Encoded using **BGE embeddings**, capturing semantic meaning and scam-related language patterns.
+   **Text Features:** Encoded using **BGE embeddings**, capturing semantic meaning and scam-related language patterns.
 
-5. **Multimodal Fusion**
-
-   The features are combined into a single vector:
-
+5. **Multimodal Fusion:** The features are combined into a single vector:
    2304 audio features + 768 text features = **3072 multimodal features**
 
-6. **Fraud Probability Prediction**
+6. **Fraud Probability Prediction:** The fused vector is passed into the trained **PyTorch fusion classifier**, which outputs a fraud probability between 0.0 and 1.0.
 
-   The fused vector is passed into the trained **PyTorch fusion classifier**, which outputs a fraud probability between 0.0 and 1.0.
-
-7. **Decision Threshold**
-
-   If the fraud probability exceeds **0.85**, the system triggers a scam alert and terminates the call.
+7. **Decision Threshold:** If the fraud probability exceeds **0.85**, the system triggers a scam alert and terminates the call.
 
 ### Stateful Conversation Analysis
 
@@ -156,6 +169,25 @@ This allows the system to detect patterns such as:
 - escalation in pressure or urgency  
 - repeated requests for financial information  
 - impersonation tactics developing over time
+
+---
+
+## Production ML Considerations
+
+Building a real-time fraud detection system requires more than model accuracy.  
+The system is designed with several production ML challenges in mind:
+
+**Cold Start Latency**  
+GPU model loading and container warm-up are handled during service initialization to prevent delays during live calls.
+
+**Stateful Streaming Inference**  
+Instead of evaluating isolated segments, the model maintains conversation state across the entire call.
+
+**Scalable Serverless Inference**  
+The backend runs on serverless GPU infrastructure, allowing the system to scale dynamically with incoming calls.
+
+**Monitoring & Observability**  
+The system tracks real-time inference latency, fraud probability trends, and infrastructure cost.
 
 ---
 
