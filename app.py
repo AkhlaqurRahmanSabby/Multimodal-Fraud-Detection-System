@@ -10,7 +10,12 @@ import plotly.graph_objects as go
 
 # --- Configuration ---
 st.set_page_config(page_title="Fraud Detection API", layout="wide")
-MODAL_WS_URL = "wss://sabby-rahman--multimodal-fraud-api-serve.modal.run/stream"
+
+try:
+    MODAL_WS_URL = st.secrets["MODAL_WS_URL"]
+except FileNotFoundError:
+    st.error("Missing MODAL_WS_URL secret. Please configure it in Streamlit Cloud or locally in .streamlit/secrets.toml")
+    st.stop()
 
 # --- CURRENT CLOUD COMPUTE COSTS (USD/sec) ---
 # GPU (Nvidia T4): $0.0001640

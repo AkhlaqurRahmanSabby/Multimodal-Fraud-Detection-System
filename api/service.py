@@ -101,6 +101,7 @@ async def websocket_endpoint(websocket: WebSocket):
     image=env_image,
     cpu=1,
     gpu="T4",
+    timeout=300,
     container_idle_timeout=120
 )
 @modal.asgi_app()
