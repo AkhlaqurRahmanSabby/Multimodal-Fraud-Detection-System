@@ -5,9 +5,14 @@ import numpy as np
 import time
 import torch
 
+# Persistent Cloud Volume for Hugging Face Cache
+hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
+
+# Reroute HF downloads to the Volume via Environment Variable
 env_image = (
     modal.Image.debian_slim()
     .pip_install("fastapi", "torch", "transformers", "sentence-transformers", "numpy")
+    .env({"HF_HUB_CACHE": "/root/.cache/huggingface"})
     .add_local_dir("src", remote_path="/root/src")
     .add_local_dir("models", remote_path="/root/models")
 )
@@ -97,13 +102,16 @@ async def websocket_endpoint(websocket: WebSocket):
         print("WebSocket error:", e)
 
 
+# Apply the new architecture settings to the Cloud Function
 @app.function(
     image=env_image,
     cpu=1,
     gpu="T4",
     timeout=300,
-    container_idle_timeout=120
+    scaledown_window=120,
+    volumes={"/root/.cache/huggingface": hf_cache_vol}
 )
+@modal.concurrent(max_inputs=10)
 @modal.asgi_app()
 def serve():
     return web_app
