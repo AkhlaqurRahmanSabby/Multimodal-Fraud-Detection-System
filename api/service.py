@@ -111,7 +111,7 @@ async def websocket_endpoint(websocket: WebSocket):
     scaledown_window=120,
     volumes={"/root/.cache/huggingface": hf_cache_vol}
 )
-@modal.concurrent(max_inputs=10)
+@modal.concurrent(max_inputs=50)
 @modal.asgi_app()
 def serve():
     return web_app

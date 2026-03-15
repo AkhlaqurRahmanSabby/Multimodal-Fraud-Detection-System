@@ -10,6 +10,16 @@ import plotly.graph_objects as go
 
 # --- Configuration ---
 st.set_page_config(page_title="Fraud Detection API", layout="wide")
+st.markdown(
+    """
+    <style>
+        [data-testid="stSidebar"] {
+            display: none;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 try:
     MODAL_WS_URL = st.secrets["MODAL_WS_URL"]
@@ -35,12 +45,23 @@ def format_cost_box(cost):
     """
 
 # ==========================================
-# 1. HEADER & COST
+# 1. HEADER & NAVIGATION
 # ==========================================
-st.title("Multimodal Fraud Detection System")
-st.markdown("True real-time continuous streaming simulation via Serverless WebSockets.")
+col_title, col_nav = st.columns([3, 1])
 
-st.write("") 
+with col_title:
+    st.title("Multimodal Fraud Detection")
+    st.markdown("True real-time continuous streaming simulation via Serverless WebSockets.")
+
+with col_nav:
+    st.write("") # Adds padding to align with the title
+    st.write("") # Extra padding to center it vertically
+    
+    # Use a real 'primary' button with a programmatic page switch
+    if st.button("🚀 Live Deployment Demo", type="primary", use_container_width=True):
+        st.switch_page("pages/1_Load_Test.py")
+
+st.write("")
 
 cost_display = st.empty()
 cost_display.markdown(format_cost_box(0.0), unsafe_allow_html=True)
