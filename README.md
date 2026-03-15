@@ -1,10 +1,28 @@
 # Multimodal Fraud Detection System 🚨
 
-An enterprise-grade real-time AI streaming pipeline that intercepts and terminates fraudulent phone calls using multimodal stateful fusion (audio + text).
+A production-oriented real-time AI streaming pipeline that analyzes live phone calls and estimates fraud risk using multimodal signals (audio + text).
+
+The system processes streaming audio in real time, extracts speech and semantic features, and continuously updates a stateful fraud probability throughout the conversation.
 
 Built with **Streamlit, FastAPI, WebSockets, Modal (Serverless T4 GPU), PyTorch, Whisper, and Wav2Vec2**.
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Try%20the%20App-red?style=for-the-badge)](https://multimodal-fraud-detection-system.streamlit.app/)
+
+---
+
+# Overview
+
+Phone scams rely on both language patterns and vocal manipulation, such as urgency, stress, and authority cues.  
+This system combines speech signals and semantic analysis to estimate fraud risk during a live call.
+
+The system evaluates both:
+
+- **What is being said** (text semantics)
+- **How it is being said** (vocal tone and stress patterns)
+
+Fraud probability is updated every **5 seconds** as new audio arrives.
+
+If the probability exceeds a configured threshold, the system can terminate the call stream early, acting as an **active interception system** rather than a passive analyzer.
 
 ---
 
@@ -20,7 +38,7 @@ Built with **Streamlit, FastAPI, WebSockets, Modal (Serverless T4 GPU), PyTorch,
 ---
 
 ## Real-Time Multimodal Classification
-The core of the system processes live audio streams via WebSockets, transcribing and evaluating call risk every 5 seconds. It assesses both **what** is being said (the text) and **how** it is being said (the tone of voice).
+The system processes streaming audio through a **WebSocket pipeline**, evaluating fraud risk every 5 seconds.
 
 | 🟢 Safe Interaction | 🔴 Scam Interception |
 | :---: | :---: |
@@ -90,8 +108,6 @@ flowchart LR
 Performance is critical for active interception. Once the system is running, the end-to-end processing time (Inference Latency) consistently stays **under 320ms**.
 
 > **Note on Initial Latency:** The very first audio chunk typically takes longer (roughly 5-10 seconds) because the cloud provider is "warming up" the GPU and loading the 1.5GB of model weights into VRAM. All subsequent chunks are processed in near real-time.
-
-
 
 ---
 ## Dataset & Training Pipeline
@@ -169,6 +185,44 @@ This allows the system to detect patterns such as:
 - escalation in pressure or urgency  
 - repeated requests for financial information  
 - impersonation tactics developing over time
+
+---
+
+# Repository Structure
+
+```
+Multimodal-Fraud-Detection-System
+│
+├── app.py
+├── requirements.txt
+├── README.md
+│
+├── api/
+│   └── service.py
+│
+├── assets/
+│
+├── data/
+│   ├── raw/
+│   ├── processed/
+│   └── feedback/
+│
+├── models/
+│
+├── notebooks/
+│
+├── pages/
+│
+├── samples/
+│
+└── src/
+    ├── audio/
+    ├── text/
+    ├── inference/
+    ├── training/
+    ├── drift_monitoring/
+    └── active_learning/
+```
 
 ---
 
