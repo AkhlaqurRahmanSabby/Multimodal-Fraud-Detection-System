@@ -6,6 +6,8 @@ data/raw/*
 data/processed/*
 data/feedback/*
 !data/**/.gitkeep
+!data/processed/wav2vec_features.parquet
+!data/processed/text_features.parquet
 *.wav
 !samples/*.wav
 *.mp3
