@@ -3,11 +3,13 @@ import torch.nn as nn
 import numpy as np
 
 
-class MultimodalFusionClassifier(nn.Module):
-    def __init__(self, input_dim=3072):
-        super(MultimodalFusionClassifier, self).__init__()
-        self.network = nn.Sequential(
-            nn.Linear(input_dim, 512),
+class LSTMStatefulClassifier(nn.Module):
+    def __init__(self, input_dim=3072, hidden_dim=512, num_layers=1):
+        super(LSTMStatefulClassifier, self).__init__()
+        
+        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, batch_first=True)
+        self.classifier = nn.Sequential(
+            nn.Linear(hidden_dim, 512),
             nn.BatchNorm1d(512),
             nn.ReLU(),
             nn.Dropout(0.5),
@@ -19,37 +21,47 @@ class MultimodalFusionClassifier(nn.Module):
         )
 
 
-    def forward(self, x):
-        return self.network(x)
+    # We just pass the chunk and the previous memory state.
+    def forward(self, x, hidden_state=None):
+        out, hidden_state = self.lstm(x, hidden_state)
+        last_hidden = out[:, -1, :] 
+        logits = self.classifier(last_hidden)
+
+        return logits, hidden_state
 
 
 class InferencePipeline:
-    def __init__(self, model_path: str = "models/pytorch_fraud_model.pth"):
-        """
-        Loads the PyTorch model architecture and injects the trained weights.
-        """
-
+    def __init__(self, model_path: str = "../../models/pytorch_v2_lstm_fusion.pth"):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"Loading Multimodal Pipeline onto {self.device}...")
+        print(f"Loading Stateful Multimodal Pipeline onto {self.device}...")
         
-        self.model = MultimodalFusionClassifier(input_dim=3072)
+        self.model = LSTMStatefulClassifier(input_dim=3072)
+        # Load the weights we trained in Notebook 6
         self.model.load_state_dict(torch.load(model_path, map_location=self.device))
         self.model.to(self.device)
         self.model.eval() 
-
-
-    def predict(self, audio_features: np.ndarray, text_features: np.ndarray) -> float:
-        """
-        Fuses the audio and text vectors and returns a scam probability.
-        """
         
+        # This will hold the (hn, cn) memory tuples during a live call
+        self.hidden_state = None 
+
+
+    def reset_memory(self):
+        """Must be called when a new phone call begins to wipe the LSTM's memory."""
+        self.hidden_state = None
+
+
+    def predict_chunk(self, audio_features: np.ndarray, text_features: np.ndarray) -> float:
+        """
+        Fuses the math, updates the LSTM's memory, and returns the live scam probability.
+        """
         combined_features = np.concatenate((audio_features, text_features))
         
-        # Convert to PyTorch tensor and add a batch dimension -> Shape: (1, 3072)
-        input_tensor = torch.FloatTensor(combined_features).unsqueeze(0).to(self.device)
+        # Shape: (Batch=1, Seq_Length=1, Features=3072)
+        input_tensor = torch.FloatTensor(combined_features).unsqueeze(0).unsqueeze(0).to(self.device)
         
         with torch.no_grad():
-            logits = self.model(input_tensor)
+            # Pass the data AND the previous memory. The model returns the new updated memory.
+            logits, self.hidden_state = self.model(input_tensor, self.hidden_state)
             probability = torch.sigmoid(logits).item() 
             
         return probability
