@@ -4,6 +4,7 @@ import json
 import numpy as np
 import time
 import torch
+import asyncio
 
 # Persistent Cloud Volume for Hugging Face Cache
 hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
@@ -41,7 +42,7 @@ def load_models():
     text_extractor = StreamingTextExtractor()
     transcriber = StreamingTranscriber()
     
-    pipeline = InferencePipeline(model_path="/root/models/pytorch_v2_lstm_fusion.pth")
+    pipeline = InferencePipeline(model_path="/root/models/pytorch_fraud_model.pth")
     print("All V2 models loaded successfully.")
 
 
@@ -50,8 +51,8 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     print("New phone call connected.")
 
-    # WIPE THE LSTM'S MEMORY FOR THE NEW CALL
-    pipeline.reset_memory()
+    # This specific phone call gets its own private, isolated memory
+    session_hidden_state = None 
 
     try:
         while True: 
@@ -66,19 +67,26 @@ async def websocket_endpoint(websocket: WebSocket):
 
             inference_start = time.time()
 
-            # 1. TRANSCRIBE (Only the current 5-second chunk)
-            transcript_chunk = transcriber.transcribe_chunk(audio_array)
-
-            # 2. EXTRACT MATH (Only the current 5-second chunk)
-            audio_features = audio_extractor.extract_features(audio_array)
-            text_features = text_extractor.extract_features(transcript_chunk)
+            # RUN HEAVY MATH IN BACKGROUND THREADS TO UNBLOCK FASTAPI
+            transcript_chunk = await asyncio.to_thread(
+                transcriber.transcribe_chunk, audio_array
+            )
             
-            # 3. FUSE & UPDATE MEMORY (LSTM handles the history internally)
-            scam_prob = pipeline.predict_chunk(audio_features, text_features)
+            audio_features = await asyncio.to_thread(
+                audio_extractor.extract_features, audio_array
+            )
+            
+            text_features = await asyncio.to_thread(
+                text_extractor.extract_features, transcript_chunk
+            )
+            
+            # FUSE & UPDATE MEMORY
+            scam_prob, session_hidden_state = await asyncio.to_thread(
+                pipeline.predict_chunk, audio_features, text_features, session_hidden_state
+            )
 
             backend_latency_ms = round((time.time() - inference_start) * 1000, 2)
 
-            # 4. RESPOND
             await websocket.send_json({
                 "status": "success",
                 "transcript": transcript_chunk, 
@@ -101,6 +109,7 @@ async def websocket_endpoint(websocket: WebSocket):
     scaledown_window=120,
     volumes={"/root/.cache/huggingface": hf_cache_vol}
 )
+@modal.concurrent(max_inputs=10)
 @modal.asgi_app()
 def serve():
     return web_app

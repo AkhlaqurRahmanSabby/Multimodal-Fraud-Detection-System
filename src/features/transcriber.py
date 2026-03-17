@@ -1,33 +1,41 @@
 import torch
 import numpy as np
-from transformers import pipeline
+from transformers import WhisperProcessor, WhisperForConditionalGeneration
+
 
 class StreamingTranscriber:
     def __init__(self, model_name: str = "openai/whisper-tiny.en"):
         """
-        Loads the Whisper ASR model into VRAM once for live transcription.
+        Loads the Whisper ASR processor and model into VRAM directly for manual control.
         """
-
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Loading Whisper Transcriber ({model_name}) onto {self.device}...")
         
-        self.pipe = pipeline(
-            "automatic-speech-recognition",
-            model=model_name,
-            device=0 if self.device == "cuda" else -1
-        )
+        self.processor = WhisperProcessor.from_pretrained(model_name)
+        self.model = WhisperForConditionalGeneration.from_pretrained(model_name).to(self.device)
+        self.model.eval()
 
 
     def transcribe_chunk(self, audio_chunk_16k: np.ndarray) -> str:
         """
-        Transcribes a 5-second audio chunk into text.
+        Transcribes a 5-second audio chunk directly using model.generate().
         """
-        
         # Safety check for absolute silence
         if np.max(np.abs(audio_chunk_16k)) < 0.001:
             return ""
 
-        result = self.pipe({"sampling_rate": 16000, "raw": audio_chunk_16k}, generate_kwargs={"task": "transcribe"})
-        text = result["text"].strip()
+        # Convert raw audio into Whisper's required input format
+        input_features = self.processor(
+            audio_chunk_16k, 
+            sampling_rate=16000, 
+            return_tensors="pt"
+        ).input_features.to(self.device)
+
+        # Generate the transcription IDs without tracking gradients
+        with torch.no_grad():
+            predicted_ids = self.model.generate(input_features)
+
+        # Decode the IDs back into English text
+        transcription = self.processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
         
-        return text
+        return transcription.strip()

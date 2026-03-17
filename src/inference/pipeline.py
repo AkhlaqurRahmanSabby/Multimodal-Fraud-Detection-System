@@ -50,18 +50,18 @@ class InferencePipeline:
         self.hidden_state = None
 
 
-    def predict_chunk(self, audio_features: np.ndarray, text_features: np.ndarray) -> float:
+    def predict_chunk(self, audio_features: np.ndarray, text_features: np.ndarray, hidden_state=None):
         """
-        Fuses the math, updates the LSTM's memory, and returns the live scam probability.
+        Takes the chunk AND the specific caller's memory, returns the prob AND the updated memory.
         """
-        combined_features = np.concatenate((audio_features, text_features))
         
-        # Shape: (Batch=1, Seq_Length=1, Features=3072)
+        combined_features = np.concatenate((audio_features, text_features))
         input_tensor = torch.FloatTensor(combined_features).unsqueeze(0).unsqueeze(0).to(self.device)
         
         with torch.no_grad():
-            # Pass the data AND the previous memory. The model returns the new updated memory.
-            logits, self.hidden_state = self.model(input_tensor, self.hidden_state)
+            # Pass the specific call's memory in
+            logits, new_hidden_state = self.model(input_tensor, hidden_state)
             probability = torch.sigmoid(logits).item() 
             
-        return probability
+        # Hand the updated memory back to the web server
+        return probability, new_hidden_state
