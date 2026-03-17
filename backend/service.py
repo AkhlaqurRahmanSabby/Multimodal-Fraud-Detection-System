@@ -11,7 +11,7 @@ hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=Tru
 # Reroute HF downloads to the Volume via Environment Variable
 env_image = (
     modal.Image.debian_slim()
-    .pip_install("fastapi", "torch", "transformers", "sentence-transformers", "numpy")
+    .pip_install("fastapi", "torch", "transformers", "sentence-transformers", "numpy", "librosa")
     .env({"HF_HUB_CACHE": "/root/.cache/huggingface"})
     .add_local_dir("src", remote_path="/root/src")
     .add_local_dir("models", remote_path="/root/models")
@@ -20,41 +20,38 @@ env_image = (
 app = modal.App("multimodal-fraud-api") 
 web_app = FastAPI(title="Multimodal Fraud Detection System API")
 
+# Global variables to hold models in memory
 audio_extractor = None
 text_extractor = None
+transcriber = None
 pipeline = None
-asr_model = None
 
 @web_app.on_event("startup")
 def load_models():
     """Runs once when the Modal container boots up."""
-    global audio_extractor, text_extractor, pipeline, asr_model
+    global audio_extractor, text_extractor, transcriber, pipeline
     
-    from src.audio.extractor import StreamingAudioExtractor
-    from src.text.extractor import StreamingTextExtractor
+    from src.features.audio_extractor import StreamingAudioExtractor
+    from src.features.text_extractor import StreamingTextExtractor
+    from src.features.transcriber import StreamingTranscriber
     from src.inference.pipeline import InferencePipeline
-    from transformers import pipeline as hf_pipeline
 
-    print("Loading multimodal models into memory...")
+    print("Loading V2 multimodal models into memory...")
     audio_extractor = StreamingAudioExtractor()
     text_extractor = StreamingTextExtractor()
-    pipeline = InferencePipeline(model_path="/root/models/pytorch_fraud_model.pth")
+    transcriber = StreamingTranscriber()
     
-    device = 0 if torch.cuda.is_available() else -1
-    print(f"Loading Whisper ASR onto device {device}...")
-    asr_model = hf_pipeline("automatic-speech-recognition", model="openai/whisper-tiny.en", device=device)
-    print("All models loaded successfully.")
+    pipeline = InferencePipeline(model_path="/root/models/pytorch_v2_lstm_fusion.pth")
+    print("All V2 models loaded successfully.")
 
 
 @web_app.websocket("/stream")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    print("New connection established.")
+    print("New phone call connected.")
 
-    # --- MEMORY STATE ---
-    call_history = ""
-    # Initialize an empty numpy array for the audio memory
-    cumulative_audio = np.array([], dtype=np.float32)
+    # WIPE THE LSTM'S MEMORY FOR THE NEW CALL
+    pipeline.reset_memory()
 
     try:
         while True: 
@@ -69,25 +66,19 @@ async def websocket_endpoint(websocket: WebSocket):
 
             inference_start = time.time()
 
-            # TRANSCRIBE (Whisper only needs the current 5-second chunk)
-            transcription_result = asr_model({"sampling_rate": 16000, "raw": audio_array})
-            transcript_chunk = transcription_result["text"].strip()
+            # 1. TRANSCRIBE (Only the current 5-second chunk)
+            transcript_chunk = transcriber.transcribe_chunk(audio_array)
 
-            # UPDATE MEMORY
-            call_history += " " + transcript_chunk
-            current_text_context = call_history.strip()
+            # 2. EXTRACT MATH (Only the current 5-second chunk)
+            audio_features = audio_extractor.extract_features(audio_array)
+            text_features = text_extractor.extract_features(transcript_chunk)
             
-            # Concatenate the new 5 seconds of audio to the historical audio
-            cumulative_audio = np.concatenate((cumulative_audio, audio_array))
-
-            # EXTRACT & FUSE (Both models now evaluate the FULL history)
-            audio_features = audio_extractor.extract_features(cumulative_audio)
-            text_features = text_extractor.extract_features(current_text_context)
-            scam_prob = pipeline.predict(audio_features, text_features)
+            # 3. FUSE & UPDATE MEMORY (LSTM handles the history internally)
+            scam_prob = pipeline.predict_chunk(audio_features, text_features)
 
             backend_latency_ms = round((time.time() - inference_start) * 1000, 2)
 
-            # RESPOND
+            # 4. RESPOND
             await websocket.send_json({
                 "status": "success",
                 "transcript": transcript_chunk, 
@@ -97,10 +88,9 @@ async def websocket_endpoint(websocket: WebSocket):
             })
 
     except WebSocketDisconnect:
-        print("Client disconnected cleanly")
+        print("Call disconnected cleanly.")
     except Exception as e:
-        print("WebSocket error:", e)
-
+        print(f"WebSocket error: {e}")
 
 # Apply the new architecture settings to the Cloud Function
 @app.function(
@@ -111,7 +101,6 @@ async def websocket_endpoint(websocket: WebSocket):
     scaledown_window=120,
     volumes={"/root/.cache/huggingface": hf_cache_vol}
 )
-@modal.concurrent(max_inputs=50)
 @modal.asgi_app()
 def serve():
     return web_app
