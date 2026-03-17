@@ -38,7 +38,7 @@ st.divider()
 # ==========================================
 # FILE INGESTION & SORTING
 # ==========================================
-SAMPLE_DIR = "samples"
+SAMPLE_DIR = "frontend/samples"
 
 if not os.path.exists(SAMPLE_DIR):
     st.error(f"Error: Directory '{SAMPLE_DIR}' not found.")
