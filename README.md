@@ -6,7 +6,7 @@ The system processes streaming audio in real time, extracts speech and semantic 
 
 Built with **Streamlit, FastAPI, WebSockets, Modal (Serverless T4 GPU), PyTorch, Whisper, and Wav2Vec2**.
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Try%20the%20App-red?style=for-the-badge)](https://multimodal-fraud-detection-system.streamlit.app/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Try%20the%20App-red?style=for-the-badge)](https://multimodal-fraud-detection-system-v2.streamlit.app/)
 
 ---
 
