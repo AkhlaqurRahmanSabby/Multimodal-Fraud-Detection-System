@@ -134,11 +134,11 @@ with col_input:
             st.info("💡 **Demo Testing:** These pre-loaded samples match the model's training distribution. You can play the audio to hear the script before initiating the stream.")
             
             samples_data = {
-                "🟢 SAFE | Sample 0: Friend Follow-up": "samples/sample_0.wav",
-                "🟢 SAFE | Sample 1: Board Game Invite": "samples/sample_1.wav",
-                "🔴 SCAM | Sample 2: Customs Package Intercept": "samples/sample_2.wav",
-                "🟢 SAFE | Sample 3: Utility Bill Callback": "samples/sample_3.wav",
-                "🔴 SCAM | Sample 4: Customs Package Variation": "samples/sample_4.wav"
+                "🟢 SAFE | Sample 0: Friend Follow-up": "frontend/samples/sample_0.wav",
+                "🟢 SAFE | Sample 1: Board Game Invite": "frontend/samples/sample_1.wav",
+                "🔴 SCAM | Sample 2: Customs Package Intercept": "frontend/samples/sample_2.wav",
+                "🟢 SAFE | Sample 3: Utility Bill Callback": "frontend/samples/sample_3.wav",
+                "🔴 SCAM | Sample 4: Customs Package Variation": "frontend/samples/sample_4.wav"
             }
             
             sample_name = st.selectbox("Choose a test sample:", list(samples_data.keys()))
