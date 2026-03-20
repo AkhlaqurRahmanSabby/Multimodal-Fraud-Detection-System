@@ -8,6 +8,7 @@ import time
 import os
 import re
 import plotly.graph_objects as go
+import requests
 
 # ==========================================
 # INITIALIZATION & CONFIGURATION
@@ -27,9 +28,17 @@ st.markdown(
 # Securely load the WebSocket endpoint for the Modal backend
 try:
     MODAL_WS_URL = st.secrets["MODAL_WS_URL"]
+    BACKEND_HTTP_URL = st.secrets.get("BACKEND_HTTP_URL", "")
 except FileNotFoundError:
     st.error("Missing MODAL_WS_URL secret.")
     st.stop()
+
+def fetch_metrics():
+    try:
+        response = requests.get(f"{BACKEND_HTTP_URL}/metrics", timeout=1)
+        return response.json()
+    except:
+        return None
 
 st.title("🚀 Enterprise Fleet Monitoring")
 st.markdown("Live monitoring of concurrent WebSocket streams. Visualizing real-time fraud detection across multiple active calls.")
@@ -67,6 +76,9 @@ if "graph_data" not in st.session_state:
 # SECTION 1: LIVE METRICS DASHBOARD
 # ==========================================
 st.markdown("### 📡 Global Fleet Latency")
+
+metrics_display = st.empty()
+
 col_g1, col_g2 = st.columns(2)
 sys_graph_ph = col_g1.empty()
 mod_graph_ph = col_g2.empty()
@@ -220,7 +232,6 @@ async def process_single_stream(file_name, file_path, ui):
                 else:
                     ui["status"].success(f"✅ Safe (Confidence: {prob:.1%}) | Processing Chunk {current_chunk}...")
                 
-                # Simulates the real-time passage of conversation
                 await asyncio.sleep(2) 
                 
     except Exception as e:
@@ -243,6 +254,21 @@ async def run_concurrent_load_test(files):
     
     # Render loop: Continually update graphs until all streams finish
     while not all(t.done() for t in running_tasks):
+        
+        metrics = fetch_metrics()
+        if metrics and "gpu" in metrics:
+            gpu = metrics["gpu"]
+            system = metrics["system"]
+
+            metrics_display.markdown(f"""
+            <div style="background-color: #e8f5e9; padding: 10px; border-radius: 8px; margin-bottom: 10px;">
+                <b>🖥 Fleet System Metrics</b><br>
+                GPU: {gpu['gpu_utilization']}% | 
+                VRAM: {gpu['gpu_memory_used_mb']} / {gpu['gpu_memory_total_mb']} MB<br>
+                CPU: {system['cpu_percent']}% | 
+                RAM: {system['ram_percent']}% ({system['ram_used_gb']} GB)
+            </div>
+            """, unsafe_allow_html=True)
         
         # Trigger 'Awake' state the moment the first data point returns
         if not is_streaming_msg_set and len(st.session_state.graph_data["times"]) > 0:
