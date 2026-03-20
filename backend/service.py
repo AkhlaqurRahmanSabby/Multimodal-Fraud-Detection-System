@@ -3,8 +3,15 @@ import json
 import numpy as np
 import time
 import asyncio
+import psutil
+from pynvml import *
 from contextlib import asynccontextmanager
 from backend.batch_worker import batch_processor, batch_queue, QueueItem
+
+
+# Initialize NVIDIA monitoring
+nvmlInit()
+gpu_handle = nvmlDeviceGetHandleByIndex(0)
 
 ml_models = {}
 
@@ -54,10 +61,23 @@ async def websocket_endpoint(websocket: WebSocket):
 
             inference_start = time.time()
 
-            # Background Extraction
-            transcript_chunk = await asyncio.to_thread(ml_models["transcriber"].transcribe_chunk, audio_array)
-            audio_features = await asyncio.to_thread(ml_models["audio_extractor"].extract_features, audio_array)
-            text_features = await asyncio.to_thread(ml_models["text_extractor"].extract_features, transcript_chunk)
+            # Run ASR and audio feature extraction in parallel
+            transcript_task = asyncio.to_thread(
+                ml_models["transcriber"].transcribe_chunk, audio_array
+            )
+            audio_task = asyncio.to_thread(
+                ml_models["audio_extractor"].extract_features, audio_array
+            )
+
+            # Wait for both to complete
+            transcript_chunk, audio_features = await asyncio.gather(
+                transcript_task,
+                audio_task
+            )
+
+            text_features = await asyncio.to_thread(
+                ml_models["text_extractor"].extract_features, transcript_chunk
+            )
             
             # Queue for batched inference
             request_item = QueueItem(audio_features, text_features, session_hidden_state)
@@ -80,3 +100,30 @@ async def websocket_endpoint(websocket: WebSocket):
         print("Call disconnected cleanly.")
     except Exception as e:
         print(f"WebSocket error: {e}")
+
+
+@web_app.get("/metrics")
+async def get_system_metrics():
+    try:
+        mem_info = nvmlDeviceGetMemoryInfo(gpu_handle)
+        utilization = nvmlDeviceGetUtilizationRates(gpu_handle)
+
+        gpu_data = {
+            "gpu_utilization": utilization.gpu,
+            "gpu_memory_used_mb": round(mem_info.used / (1024**2), 2),
+            "gpu_memory_total_mb": round(mem_info.total / (1024**2), 2),
+        }
+
+        system_data = {
+            "cpu_percent": psutil.cpu_percent(interval=0.0),
+            "ram_percent": psutil.virtual_memory().percent,
+            "ram_used_gb": round(psutil.virtual_memory().used / (1024**3), 2),
+        }
+
+        return {
+            "gpu": gpu_data,
+            "system": system_data
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
