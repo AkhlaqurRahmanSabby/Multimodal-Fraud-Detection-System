@@ -6,6 +6,7 @@ import numpy as np
 import librosa
 import io
 import time
+import requests
 import plotly.graph_objects as go
 
 # --- Configuration ---
@@ -23,6 +24,7 @@ st.markdown(
 
 try:
     MODAL_WS_URL = st.secrets["MODAL_WS_URL"]
+    BACKEND_HTTP_URL = st.secrets.get("BACKEND_HTTP_URL", "")
 except FileNotFoundError:
     st.error("Missing MODAL_WS_URL secret. Please configure it in Streamlit Cloud or locally in .streamlit/secrets.toml")
     st.stop()
@@ -33,6 +35,14 @@ except FileNotFoundError:
 # RAM (1 GiB):     $0.0000022
 # TOTAL:           $0.0001793 / sec
 COMPUTE_COST_PER_SEC = 0.0001793
+
+def fetch_metrics():
+    try:
+        response = requests.get(f"{BACKEND_HTTP_URL}/metrics", timeout=1)
+        return response.json()
+    except:
+        return None
+    
 
 # --- Helper: HTML Cost Box ---
 def format_cost_box(cost):
@@ -65,6 +75,8 @@ st.write("")
 
 cost_display = st.empty()
 cost_display.markdown(format_cost_box(0.0), unsafe_allow_html=True)
+
+metrics_display = st.empty()
 
 # ==========================================
 # 2. LIVE GRAPHS (Side-by-Side)
@@ -220,6 +232,21 @@ async def run_live_stream(audio_bytes):
                 model_latencies.append(result.get('model_latency_ms', 0))
                 
                 cost_display.markdown(format_cost_box(cumulative_cost), unsafe_allow_html=True)
+
+                metrics = fetch_metrics()
+                if metrics and "gpu" in metrics:
+                    gpu = metrics["gpu"]
+                    system = metrics["system"]
+
+                    metrics_display.markdown(f"""
+                    <div style="background-color: #e3f2fd; padding: 10px; border-radius: 8px; margin-bottom: 10px;">
+                        <b>🖥 System Metrics</b><br>
+                        GPU: {gpu['gpu_utilization']}% | 
+                        VRAM: {gpu['gpu_memory_used_mb']} / {gpu['gpu_memory_total_mb']} MB<br>
+                        CPU: {system['cpu_percent']}% | 
+                        RAM: {system['ram_percent']}% ({system['ram_used_gb']} GB)
+                    </div>
+                    """, unsafe_allow_html=True)
                 
                 if result.get('transcript'):
                     full_transcript += result['transcript'] + " "
