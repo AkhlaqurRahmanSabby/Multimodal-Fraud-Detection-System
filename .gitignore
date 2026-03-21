@@ -9,7 +9,7 @@ data/feedback/*
 !data/processed/wav2vec_features.parquet
 !data/processed/text_features.parquet
 *.wav
-!samples/*.wav
+!frontend/samples/*.wav
 *.mp3
 *.pth
 *.pt
