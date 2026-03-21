@@ -4,7 +4,7 @@ hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=Tru
 
 env_image = (
     modal.Image.debian_slim(python_version="3.14")
-    .pip_install("fastapi", "torch", "transformers", "sentence-transformers", "numpy", "librosa", "websockets", "psutil", "pynvml")
+    .pip_install("fastapi", "torch", "transformers", "sentence-transformers", "numpy", "librosa", "websockets", "psutil", "nvidia-ml-py")
     .env({"HF_HUB_CACHE": "/root/.cache/huggingface"})
     .add_local_dir("src", remote_path="/root/src")
     .add_local_dir("models", remote_path="/root/models")
@@ -21,7 +21,7 @@ app = modal.App("multimodal-fraud-api")
     scaledown_window=120,
     volumes={"/root/.cache/huggingface": hf_cache_vol}
 )
-@modal.concurrent(max_inputs=50)
+@modal.concurrent(max_inputs=10)
 @modal.asgi_app()
 def serve():
     from backend.service import web_app
