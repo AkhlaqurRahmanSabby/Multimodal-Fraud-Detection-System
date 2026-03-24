@@ -122,7 +122,17 @@ These changes removed queueing delays and stabilized the system. End-to-end syst
 
 However, inference latency per request increased to **4000ms–4500ms** due to batching. This reflects a tradeoff: improved system stability and throughput at the cost of higher per-request compute time.
 
-### Open Hypotheses
+**Visualizing the Improvement:**
+
+![V2 System Latency Steady State](../assets/v2_system_latency_steady.png)
+
+*Figure 3: End-to-end system latency remains stable under load, with no queue buildup.*
+
+![V2 GPU Inference Steady State](../assets/v2_gpu_inference_steady.png)
+
+*Figure 4: GPU inference latency remains consistent due to fixed-size inputs and controlled batching.*
+
+### Hypotheses
 * **GPU Bottleneck:** Since inference accounts for a large portion of total latency (~4.5s out of <6s), the system may be compute-bound. Using more powerful GPUs or optimizing inference could reduce latency, but this needs to be validated through benchmarking.
 
 * **Frontend & Network Overhead:** There is still a gap between inference time and total system latency. This suggests additional overhead in networking or request handling. The exact source has not yet been isolated and requires further profiling.
