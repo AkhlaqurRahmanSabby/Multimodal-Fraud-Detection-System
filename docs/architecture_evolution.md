@@ -136,3 +136,9 @@ However, inference latency per request increased to **4000ms–4500ms** due to b
 * **GPU Bottleneck:** Since inference accounts for a large portion of total latency (~4.5s out of <6s), the system may be compute-bound. Using more powerful GPUs or optimizing inference could reduce latency, but this needs to be validated through benchmarking.
 
 * **Frontend & Network Overhead:** There is still a gap between inference time and total system latency. This suggests additional overhead in networking or request handling. The exact source has not yet been isolated and requires further profiling.
+
+---
+
+## V2.1: Hardware Upgrade
+
+After upgrading to more powerful GPUs (A100 and B200), the end-to-end system latency dropped to **below 3000ms**.
