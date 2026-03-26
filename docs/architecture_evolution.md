@@ -141,4 +141,34 @@ However, inference latency per request increased to **4000ms–4500ms** due to b
 
 ## V2.1: Hardware Upgrade
 
-After upgrading to more powerful GPUs (A100 and B200), the end-to-end system latency dropped to **below 3000ms**.
+To ensure a fair comparison under full load, we measured latency using only the first 5-second chunk of audio. This is the only point where all concurrent streams are active before scam calls begin terminating and batch sizes decrease.
+
+### Test Results (First 5-Second Chunk)
+
+**1. NVIDIA T4 (Baseline)**
+* Total System Latency: ~5400ms  
+* GPU Inference Latency: ~3800ms  
+* *Infrastructure Overhead:* ~1600ms  
+
+**2. NVIDIA A100 (40GB)**
+
+![A100 System Latency](../assets/a100_system_latency.png)
+
+![A100 GPU Inference](../assets/a100_gpu_inference.png)
+
+* Total System Latency: ~3200ms  
+* GPU Inference Latency: ~2200ms  
+* *Infrastructure Overhead:* ~1000ms  
+
+**3. NVIDIA B200**
+
+![B200 System Latency](../assets/b200_system_latency.png)
+
+![B200 GPU Inference](../assets/b200_gpu_inference.png)
+
+* Total System Latency: ~2850ms  
+* GPU Inference Latency: ~1800ms  
+* *Infrastructure Overhead:* ~1050ms  
+
+### Key Takeaway
+These results suggest the system has shifted from being queue-bound to compute-bound. GPU upgrades reduce inference latency, while a consistent ~1s infrastructure overhead remains. Further improvements will likely require both faster inference and system-level optimizations.
