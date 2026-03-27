@@ -193,35 +193,41 @@ This allows the system to detect patterns such as:
 ```
 Multimodal-Fraud-Detection-System
 │
-├── app.py
-├── requirements.txt
 ├── README.md
+├── requirements.txt
+├── modal_deploy.py
 │
-├── api/
-│   └── service.py
+├── assets/                  # UI images and telemetry graphs
+├── backend/                 # FastAPI service and Modal workers
+│   ├── service.py
+│   └── batch_worker.py
 │
-├── assets/
+├── data/                    # Raw, processed, and HITL feedback data
 │
-├── data/
-│   ├── raw/
-│   ├── processed/
-│   └── feedback/
+├── docs/
+│   └── architecture_evolution.md
 │
-├── models/
+├── experiments/notebooks/   # Jupyter pipelines for data generation & model training
 │
-├── notebooks/
+├── frontend/                # Streamlit UI and load testing dashboard
+│   ├── app.py
+│   └── pages/
 │
-├── pages/
+├── models/                  # Compiled model weights (.joblib, .pth)
 │
-├── samples/
-│
-└── src/
-    ├── audio/
-    ├── text/
+└── src/                     # Core ML logic and inference pipelines
+    ├── active_learning/
+    │   └── uncertainty_router.py
+    ├── features/
+    │   ├── audio_extractor.py
+    │   ├── text_extractor.py
+    │   └── transcriber.py
     ├── inference/
-    ├── training/
-    ├── drift_monitoring/
-    └── active_learning/
+    │   └── pipeline.py
+    ├── monitoring/
+    │   └── drift_detection.py
+    └── training/
+        └── train_pipeline.py
 ```
 
 ---
