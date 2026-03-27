@@ -14,6 +14,31 @@ class UncertaintyRouter:
         os.makedirs(self.queue_dir, exist_ok=True)
 
 
+    def evaluate_and_route(
+        self, 
+        probability: float, 
+        transcript_chunk: str, 
+        audio_features: np.ndarray, 
+        text_features: np.ndarray,
+        session_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Evaluates the prediction confidence and routes it to the HITL queue if uncertain.
+        """
+        is_uncertain = self.lower_bound <= probability <= self.upper_bound
+        route_status = "auto_processed"
+        
+        if is_uncertain:
+            route_status = "routed_to_hitl"
+            self._save_to_queue(probability, transcript_chunk, audio_features, text_features, session_id)
+            
+        return {
+            "probability": probability,
+            "is_uncertain": is_uncertain,
+            "route_status": route_status
+        }
+
+
     def _save_to_queue(
         self, 
         probability: float, 
